@@ -1,3 +1,4 @@
-/.idea
 /proto
-/proto/
+/src/__pycache__
+/tests/__pycache__
+/.idea
