@@ -95,3 +95,21 @@ réaction en chaîne.
 Le tétraèdre aide à comprendre pourquoi **un feu peut se renflammer même après que le combustible, le comburant ou la 
 chaleur semblent avoir été supprimés**. Si la réaction en chaîne n'a pas été complètement interrompue et qu'il reste 
 des radicaux libres actifs, le feu peut reprendre si les conditions redeviennent favorables.
+
+## Formules
+
+### Formule de conduction thermique simplifiée
+$Q conduction = K * (T source - T target) * A / d * Δt$
+
+- $Q conduction$ : Quantité de chaleur transférée par conduction (en Joules)
+- $K$ : Conductivité thermique de matériau
+- $T source$ : Température de la cellule source (celle qui envoie la chaleur)
+- $T target$ : Température de la cellule cible (celle qui reçoit la chaleur)
+- $A$ : Aire de la surface de contact entre les cellules. Dans le cas de notre simulation nous pouvons considérer une
+aire constante qui est celle de la cellule (CELL_WIDTH * CELL_HEIGHT)
+- $d$ : Distance entre les centres des cellules voisines. Puisque toutes les cellules ont la même aire et que les
+voisins peuvent être sur un axe vertical/horizontal ou diagonal, nous pouvons établir une distance moyenne égal à :
+(CELL_WIDTH + CELL_HEIGHT) / 2
+- $Δt$ : Intervalle de temps pendant lequel le transfert de chaleur a lieu. Nous pouvons introduire un pas de temps de 
+simulation que nous appellerons `DELTA_T`
+

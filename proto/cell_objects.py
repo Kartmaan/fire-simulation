@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pygame
+from pygame.math import Vector2
 
 pygame.init()
 
@@ -19,14 +20,14 @@ WIN_HEIGHT = USER_SCREEN_HEIGHT // scale  # 720
 # Taille initiale des cellules
 # Ces tailles seront, au besoin, ajustées de manière à ce qu'un nombre entier de cellules puisse être contenu dans
 # les dimensions de la surface
-CELL_WIDTH_INIT = 8
-CELL_HEIGHT_INIT = 8
+CELL_WIDTH_INIT = 10
+CELL_HEIGHT_INIT = 10
 
 # Marge entre deux cellules (px)
 MARGIN = 2
 
 run = True
-fps = 60
+fps = 30
 
 # Couleurs (RGB)
 BLACK = (0, 0, 0)
@@ -75,12 +76,9 @@ print(f"Cells : {cells_in_row}x{cells_in_col} = {cells_in_row*cells_in_col}")
 WINDOW_SIZE = [WIN_WIDTH, WIN_HEIGHT]
 screen = pygame.display.set_mode(WINDOW_SIZE)
 
-pygame.display.set_caption("Space Grid")
+pygame.display.set_caption("Fire propagation")
 
 clock = pygame.time.Clock()
-
-# Rayon de propagation autour de la cellule cliquée.
-NEIGHBORHOOD_RADIUS = 10
 
 # Une dataclass est une classe spécialement conçue pour contenir des données.
 # Le décorateur se charge de générer automatiquement les méthodes spéciales telles que __init__, __repr__, etc.
@@ -88,7 +86,7 @@ NEIGHBORHOOD_RADIUS = 10
 @dataclass
 class MaterialProperties:
     """
-    Propriétés des matériaux.
+    Propriétés physiques communes à tous les matériaux.
 
     ignition_temp : Température à laquelle le matériau commence à brûler.
     combustion_heat : Énergie libérée par unité de masse lors de la combustion.
@@ -111,7 +109,7 @@ class MaterialProperties:
 
 class Material(Enum):
     """
-    Enumération des matériaux et de leurs propriétés.
+    Enumération des matériaux et de leurs propriétés physiques intrinsèques.
     """
     WOOD = MaterialProperties(ignition_temp=300.0,
                               combustion_heat=18.0,
@@ -143,18 +141,24 @@ class Material(Enum):
                               emissivity=0.8,
                               color=PINK)
 
-# -------- CELL CLASS DEFINITION --------
 class Cell:
+    """
+    Cellule d'espace qui contient le matériau.
+
+    La cellule possède des attributs physiques tels que la température, le taux d'humidité et d'oxygène qui sont
+    susceptibles d'influencer l'état du matériau durant sa combustion.
+    """
     def __init__(self, row, col):
         # Position sur la grille
         self.row = row
         self.col = col
 
         # Attributs physiques
-        self.material: Material = self.get_material()
+        self.material: Material = self.__get_material()
         self.fuel_level: 100.0
         self.temperature = 20.0
         self.oxygen_rate = 21.0
+
         self.humidity_rate = 20.0
         self.heat_absorbed = 0
         self.heat_radiated = 0
@@ -166,20 +170,45 @@ class Cell:
         self.burned = False
 
         # Attributs logiques
-        self.state = 0  # 0: WHITE, 1: RED, 2: ORANGE
+        self.timers = {}
 
-    def get_neighbors(self, grid: list[list], radius: int) -> list:
+    def timer(self, timer_name: str, duration: float) -> bool:
+        """Checks if a timer has expired.
+
+        Args:
+            timer_name (str): Timer name.
+            duration (float): Desired duration in seconds.
+
+        Returns:
+            bool: True if time is up, False otherwise.
+        """
+        now = pygame.time.get_ticks() // 1000
+
+        if timer_name not in self.timers:
+            self.timers[timer_name] = now
+            return False
+
+        elapsed_time = now - self.timers[timer_name]
+        if elapsed_time >= duration:
+            self.timers[timer_name] = now
+            return True
+
+        return False
+
+    def get_neighbors(self, cell_grid: list[list['Cell']], radius: int) -> list['Cell']:
         """
         Renvoie la liste des cellules voisines dans un rayon déterminé.
 
-        :param grid: La liste de toutes les cellules.
-        :param radius: Rayon du voisinage (en nombre de cellules).
+        Args :
+            grid (list) : La liste de toutes les cellules.
+            radius (int) : Rayon du voisinage (en nombre de cellules).
 
-        :return: La liste des cellules voisines.
+        Returns :
+            La liste des cellules voisines.
         """
-        neighbors = []
-        rows = len(grid)
-        cols = len(grid[0]) if rows > 0 else 0
+        neighbors: list[Cell] = []
+        rows = len(cell_grid)
+        cols = len(cell_grid[0]) if rows > 0 else 0
 
         for offset_row in range(-radius, radius + 1):
             for offset_col in range(-radius, radius + 1):
@@ -191,16 +220,68 @@ class Cell:
 
                 # S'assurer que les coordonnées ne sont pas hors surface.
                 if 0 <= neighbor_row < rows and 0 <= neighbor_col < cols:
-                    neighbors.append(grid[neighbor_row][neighbor_col])
+                    neighbors.append(cell_grid[neighbor_row][neighbor_col])
 
         return neighbors
 
+    def heat_conduction(self, cell_grid: list[list['Cell']], delta_time: float):
+        """
+        Transfère la chaleur par conduction aux cellules voisines.
+
+        Args:
+            cell_grid (list[list[Cell]]) : Grille des cellules
+            delta_time (float) : Intervalle de temps pour le transfert de chaleur.
+        """
+        neighbors = self.get_neighbors(cell_grid, radius=1) # Conduction vers les voisins immédiats.
+
+        # Parcours des cellules voisines.
+        # À chaque passage de cette boucle les propriétés thermiques de la cellule source (self) sont comparées à celle
+        # de la cellule voisine.
+        for neighbor_cell in neighbors:
+            # Transfert de chaleur uniquement du chaud vers le froid
+            if neighbor_cell.temperature < self.temperature:
+                # Conductivité thermique de la cellule source
+                k_source = self.material.value.thermal_conductivity
+
+                # Conductivité thermique de la cellule voisine
+                k_target = neighbor_cell.material.value.thermal_conductivity
+
+                # Simplification : on prend la moyenne des conductivités thermiques pour l'interface.
+                k_interface = (k_source + k_target) / 2.0
+
+                # Différence de température entre la cellule source et voisine.
+                delta_temp = self.temperature - neighbor_cell.temperature
+
+                # Aire de contact approximative
+                contact_area = CELL_WIDTH * CELL_HEIGHT
+
+                # Distance approximative entre les centres des cellules.
+                distance = (CELL_WIDTH + CELL_HEIGHT) / 2.0
+                #distance = np.sqrt(CELL_WIDTH ** 2 + CELL_HEIGHT ** 2)
+
+                # Calcul de la quantité de chaleur transférée par conduction.
+                heat_transfert = k_interface * delta_temp * contact_area / distance * delta_time
+
+                # On applique maintenant la chaleur à la cellule voisine (augmentation de température) tout en la
+                # retirant de la cellule source (diminution de la température).
+
+                # Augmentation de température dans la cellule voisine
+                neighbor_cell.temperature += heat_transfert / neighbor_cell.material.value.thermal_capacity
+
+                # Diminution de la température dans la cellule source.
+                self.temperature -= heat_transfert / self.material.value.thermal_capacity
+
+                # Fixation d'une température minimale = température ambiante
+                neighbor_cell.temperature = max(neighbor_cell.temperature, 20.0)
+                self.temperature = max(self.temperature, 20.0)
+
     @staticmethod
-    def get_material():
+    def __get_material():
         """
         Retourne un Material selon sa probabilité d'apparition.
 
-        :return: Material.
+        Returns :
+            Material : Material object.
         """
         probabilities = {
             Material.GRASS : 0.50,
@@ -211,7 +292,7 @@ class Cell:
         rand_num = np.random.random()
 
         # Test de probabilité cumulative.
-        # Le nombre aléatoire est comparé avec ces seuils cumulatifs :
+        # Le nombre aléatoire entre 0 et 1 est comparé avec ces seuils cumulatifs :
         # 1er passage de la boucle 'cumulative_proba' = 0.5.
         # 2ᵉ passage de la boucle 'cumulative_proba' = 0.95.
         # 3ᵉ passage de la boucle 'cumulative_proba' = 1.
@@ -228,7 +309,6 @@ class Cell:
         """
         Dessine la cellule sur la surface principale.
         """
-        color = WHITE
         if self.material == Material.GRASS:
             color = Material.GRASS.value.color
         elif self.material == Material.WOOD:
@@ -238,12 +318,16 @@ class Cell:
         else:
             color = WHITE
 
+        # Conversion des coordonnées de grille en coordonnées de pixel.
         x_pos = (MARGIN + CELL_WIDTH) * self.col + MARGIN
         y_pos = (MARGIN + CELL_HEIGHT) * self.row + MARGIN
 
-        pygame.draw.rect(screen, color, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
-
-# -------- END CELL CLASS DEFINITION --------
+        if 20.0 <= self.temperature < 20.5:
+            pygame.draw.rect(screen, color, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+        elif 20.5 <= self.temperature < self.material.value.ignition_temp:
+            pygame.draw.rect(screen, ORANGE, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+        else:
+            pygame.draw.rect(screen, RED, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
 
 # Création d'une liste de Cell objects.
 grid: list[list[Cell]] = [[Cell(row, col) for col in range(cells_in_row)] for row in range(cells_in_col)]
@@ -255,33 +339,41 @@ while run:
             run = False  # Exit from main loop
             break
 
-        if event.type == pygame.MOUSEBUTTONDOWN:  # Mouse click
-            if pygame.mouse.get_pressed()[0]:  # Left click
-                pos = pygame.mouse.get_pos()  # Get cursor coordinates
+        # Clic souris
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            pos = pygame.mouse.get_pos() # Coordonnées du curseur.
 
-                # Les coordonnées du curseur sont converties en coordonnées de grille.
-                column = pos[0] // (CELL_WIDTH + MARGIN)
-                row = pos[1] // (CELL_HEIGHT + MARGIN)
-                print("[Column : {} - Row : {}]".format(column, row))
+            # Les coordonnées pixel du curseur sont converties en coordonnées de grille.
+            column = pos[0] // (CELL_WIDTH + MARGIN)
+            row = pos[1] // (CELL_HEIGHT + MARGIN)
 
-                clicked_cell = grid[row][column]  # Récupération de l'objet Cell cliqué.
+            clicked_cell: Cell = grid[row][column] # Récupération de l'objet Cell cliqué.
 
-                # Parcours de la grille pour réinitialiser les états.
-                for r in range(cells_in_col):
-                    for c in range(cells_in_row):
-                        if grid[r][c].state == 1 or grid[r][c].state == 2:
-                            grid[r][c].state = 0
+            # Clic gauche
+            # Monte la température de la cellule au-delà du point d'ignition du matériau qu'il contient.
+            if pygame.mouse.get_pressed()[0]:
+                if clicked_cell.temperature < clicked_cell.material.value.ignition_temp:
+                    excess_temp = 500
+                    clicked_cell.temperature = clicked_cell.material.value.ignition_temp + excess_temp
 
-                # Changement de couleur de la cellule cliquée via l'attribut 'state' de l'objet Cell.
-                if clicked_cell.state == 0:
-                    clicked_cell.state = 1  # Red cell (clicked)
-                else:
-                    clicked_cell.state = 0  # White cell
+                    #clicked_cell.heat_conduction(grid, delta_time=0.1)
 
-                # Récupération du voisinage via la méthode 'get_neighbors' de l'objet Cell cliqué.
-                neighbors = clicked_cell.get_neighbors(grid, NEIGHBORHOOD_RADIUS)
-                for neighbor_cell in neighbors:
-                    neighbor_cell.state = 2  # Orange cell (neighbor)
+                    print(f"({clicked_cell.row}x{clicked_cell.col}) Ignition temperature exceeded "
+                          f"({clicked_cell.material.name}) : {clicked_cell.temperature}/"
+                          f"{clicked_cell.material.value.ignition_temp}")
+
+            # Clic droit
+            # Affiche la température de la cellule
+            if pygame.mouse.get_pressed()[2]:
+                print(f"({clicked_cell.row}x{clicked_cell.col}) Temperature ({clicked_cell.material.name}) : "
+                      f"{clicked_cell.temperature}")
+
+    delta_time = 0.08
+    for row in range(cells_in_col):
+        for column in range(cells_in_row):
+            cell = grid[row][column]
+            if cell.timer("delta_time", delta_time):
+                cell.heat_conduction(grid, delta_time)
 
     # Arrière-plan
     screen.fill((50, 50, 50))
@@ -291,6 +383,13 @@ while run:
         for column in range(cells_in_row):  # Itération sur colonne (x-axis, cells_in_row)
             cell = grid[row][column]  # Récupération de l'objet Cell pour chaque position.
             cell.draw()
+
+    # Affichage de la flamme à proximité du curseur.
+    flame_radius = 5
+    cursor_pos = Vector2(pygame.mouse.get_pos())
+    flame_pos = Vector2(cursor_pos.x + 12, cursor_pos.y - 2)
+    pygame.draw.circle(screen, BLACK, flame_pos, flame_radius + 2) # Contour
+    pygame.draw.circle(screen, RED, flame_pos, flame_radius)
 
     # Set the FPS
     clock.tick(fps)
