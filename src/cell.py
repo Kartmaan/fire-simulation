@@ -1,18 +1,21 @@
 import pygame
 import numpy as np
 
-from src.scaling_option import screen, MARGIN, CELL_WIDTH, CELL_HEIGHT
+from src.window_option import screen, MARGIN, CELL_WIDTH, CELL_HEIGHT
 from src.material import Material
+from src.physics import MAX_TEMP
 from src.colors import Colors
 
 colors = Colors()
 
+SHOW_GRADIENT_ANIMATION = True
+
 class Cell:
     """
-    Cellule d'espace qui contient le matériau.
+    Space cell containing the material.
 
-    La cellule possède des attributs physiques tels que la température, le taux d'humidité et d'oxygène qui sont
-    susceptibles d'influencer l'état du matériau durant sa combustion.
+    The cell possesses physical attributes such as temperature, humidity and oxygen rate that can influence the state
+    of the material during combustion.
     """
     def __init__(self, row, col):
         # Position sur la grille
@@ -21,7 +24,7 @@ class Cell:
 
         # Attributs physiques
         self.material: Material = self.__get_material()
-        self.fuel_level: 100.0
+        self.fuel_level = 100.0
         self.temperature = 20.0
         self.oxygen_rate = 21.0
 
@@ -37,6 +40,8 @@ class Cell:
 
         # Attributs logiques
         self.timers = {}
+        self.neighbors: list['Cell']
+        self.flame_oscillation = np.random.uniform(0.1, 0.3)
 
     def timer(self, timer_name: str, duration: float) -> bool:
         """Checks if a timer has expired.
@@ -63,14 +68,14 @@ class Cell:
 
     def get_neighbors(self, cell_grid: list[list['Cell']], radius: int) -> list['Cell']:
         """
-        Renvoie la liste des cellules voisines dans un rayon déterminé.
+        Returns a list of neighboring cells within a specified radius.
 
         Args :
-            grid (list) : La liste de toutes les cellules.
-            radius (int) : Rayon du voisinage (en nombre de cellules).
+            cell_grid (list): The list of all cells.
+            radius (int) : Radius of neighborhood (in number of cells).
 
         Returns :
-            La liste des cellules voisines.
+            The list of neighboring cells.
         """
         neighbors: list[Cell] = []
         rows = len(cell_grid)
@@ -84,86 +89,35 @@ class Cell:
                 neighbor_row = self.row + offset_row
                 neighbor_col = self.col + offset_col
 
-                # S'assurer que les coordonnées ne sont pas hors surface.
+                # Make sure the coordinates are not off the surface.
                 if 0 <= neighbor_row < rows and 0 <= neighbor_col < cols:
                     neighbors.append(cell_grid[neighbor_row][neighbor_col])
 
         return neighbors
 
-    def heat_conduction(self, cell_grid: list[list['Cell']], delta_time: float):
-        """
-        Transfère la chaleur par conduction aux cellules voisines.
-
-        Args:
-            cell_grid (list[list[Cell]]) : Grille des cellules
-            delta_time (float) : Intervalle de temps pour le transfert de chaleur.
-        """
-        neighbors = self.get_neighbors(cell_grid, radius=1) # Conduction vers les voisins immédiats.
-
-        # Parcours des cellules voisines.
-        # À chaque passage de cette boucle les propriétés thermiques de la cellule source (self) sont comparées à celle
-        # de la cellule voisine.
-        for neighbor_cell in neighbors:
-            # Transfert de chaleur uniquement du chaud vers le froid
-            if neighbor_cell.temperature < self.temperature:
-                # Conductivité thermique de la cellule source
-                k_source = self.material.value.thermal_conductivity
-
-                # Conductivité thermique de la cellule voisine
-                k_target = neighbor_cell.material.value.thermal_conductivity
-
-                # Simplification : on prend la moyenne des conductivités thermiques pour l'interface.
-                k_interface = (k_source + k_target) / 2.0
-
-                # Différence de température entre la cellule source et voisine.
-                delta_temp = self.temperature - neighbor_cell.temperature
-
-                # Aire de contact approximative
-                contact_area = CELL_WIDTH * CELL_HEIGHT
-
-                # Distance approximative entre les centres des cellules.
-                distance = (CELL_WIDTH + CELL_HEIGHT) / 2.0
-                #distance = np.sqrt(CELL_WIDTH ** 2 + CELL_HEIGHT ** 2)
-
-                # Calcul de la quantité de chaleur transférée par conduction.
-                heat_transfert = k_interface * delta_temp * contact_area / distance * delta_time
-
-                # On applique maintenant la chaleur à la cellule voisine (augmentation de température) tout en la
-                # retirant de la cellule source (diminution de la température).
-
-                # Augmentation de température dans la cellule voisine
-                neighbor_cell.temperature += heat_transfert / neighbor_cell.material.value.thermal_capacity
-
-                # Diminution de la température dans la cellule source.
-                self.temperature -= heat_transfert / self.material.value.thermal_capacity
-
-                # Fixation d'une température minimale = température ambiante
-                neighbor_cell.temperature = max(neighbor_cell.temperature, 20.0)
-                self.temperature = max(self.temperature, 20.0)
-
     @staticmethod
     def __get_material():
         """
-        Retourne un Material selon sa probabilité d'apparition.
+        Returns a Material according to its probability of occurrence.
 
         Returns :
             Material : Material object.
         """
         probabilities = {
-            Material.GRASS : 0.50,
+            Material.GRASS : 0.5, #0.50
             Material.WOOD : 0.45,
             Material.FUEL : 0.05
         }
 
         rand_num = np.random.random()
 
-        # Test de probabilité cumulative.
-        # Le nombre aléatoire entre 0 et 1 est comparé avec ces seuils cumulatifs :
-        # 1er passage de la boucle 'cumulative_proba' = 0.5.
-        # 2ᵉ passage de la boucle 'cumulative_proba' = 0.95.
-        # 3ᵉ passage de la boucle 'cumulative_proba' = 1.
-        # À chacun de ces passages, on vérifie si 'rand_num' est inférieur ou égal à 'cumulative_proba', si c'est le
-        # cas, la fonction renvoie le matériau associé à la valeur de probabilité.
+        # Cumulative probability test.
+        # The random number between 0 and 1 is compared with these cumulative thresholds:
+        # 1st pass of the 'cumulative_proba' loop = 0.5.
+        # 2nd pass run 'cumulative_proba' = 0.95.
+        # 3rd pass of the 'cumulative_proba' loop = 1.
+        # At each of these passes, a check is made to see if 'rand_num' is less than or equal to 'cumulative_proba'.
+        # If so, the function returns the material associated with the probability value.
         cumulative_proba = 0
         for material, proba in probabilities.items():
             cumulative_proba += proba
@@ -173,7 +127,7 @@ class Cell:
 
     def draw(self):
         """
-        Dessine la cellule sur la surface principale.
+        Draw the cell on the main surface.
         """
         if self.material == Material.GRASS:
             color = Material.GRASS.value.color
@@ -184,13 +138,75 @@ class Cell:
         else:
             color = colors.white
 
-        # Conversion des coordonnées de grille en coordonnées de pixel.
+        # Convert grid coordinates to pixel coordinates.
         x_pos = (MARGIN + CELL_WIDTH) * self.col + MARGIN
         y_pos = (MARGIN + CELL_HEIGHT) * self.row + MARGIN
 
-        if 20.0 <= self.temperature < 20.5:
-            pygame.draw.rect(screen, color, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
-        elif 20.5 <= self.temperature < self.material.value.ignition_temp:
-            pygame.draw.rect(screen, colors.orange, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+        if self.is_burning:
+            if SHOW_GRADIENT_ANIMATION:
+                # --- Flame Color Gradient Based on Temperature and Oscillation ---
+                # 1. Normalize Temperature:
+                #    - We want to map the temperature to a range between 0 and 1.
+                #    - `self.temperature - self.material.value.ignition_temp`: We subtract the ignition temperature
+                #      because we're only interested in the temperature above which the cell is burning.
+                #    - `MAX_TEMP - self.material.value.ignition_temp`: This is the maximum possible range of
+                #      temperatures above the ignition point.
+                #    - `flame_intensity` will be 0 when `self.temperature` equals `self.material.value.ignition_temp`
+                #      and it will be 1 when `self.temperature` equals `MAX_TEMP`.
+                flame_intensity = (self.temperature - self.material.value.ignition_temp) / (
+                        MAX_TEMP - self.material.value.ignition_temp)  # Normalize temperature
+
+                # 2. Clamp the Intensity:
+                #    - We clamp the intensity between 0 and 1 using `np.clip()`.
+                #    - This ensures that `flame_intensity` never goes outside the [0, 1] range,
+                #      even if the temperature goes outside the [ignition_temp, MAX_TEMP] range.
+                flame_intensity = np.clip(flame_intensity, 0, 1)  # Clamp between 0 and 1
+
+                # 3. Create an Oscillation Factor:
+                #    - This part creates a value that oscillates smoothly between 0 and 1 over time.
+                #    - `pygame.time.get_ticks()`: Returns the number of milliseconds since `pygame.init()` was called.
+                #    - `/ 200.0`: Divides by 200 to slow down the oscillation.
+                #    - `* self.flame_oscillation`: Multiplies by a random value between 0.1 and 0.3 (set in the
+                #      constructor) to make each cell's flame oscillate at a slightly different rate.
+                #    - `np.sin(...)`: The sine function produces a smooth wave between -1 and 1.
+                #    - `* 0.5 + 0.5`: Scales the wave to the [0, 1] range.
+                oscillation_factor = np.sin(
+                    pygame.time.get_ticks() / 200.0 * self.flame_oscillation) * 0.5 + 0.5  # Oscillate between 0 and 1
+
+                # 4. Combine Intensity and Oscillation:
+                #    - We multiply the `flame_intensity` by the `oscillation_factor`.
+                #    - This means the color will vary between the color of the flame at the given intensity and black.
+                gradient_value = flame_intensity * oscillation_factor
+
+                # 5. Create the Color Gradient:
+                #    - `np.interp()` is used to interpolate between colors.
+                #    - `np.interp(gradient_value, [0, 0.5, 1], [255, 255, 255])`: The gradient is computed on the red
+                #       component.
+                #           - When gradient_value is 0: The red color will be 255.
+                #           - When gradient_value is 0.5: The red color will be 255.
+                #           - When gradient_value is 1: The red color will be 255.
+                #    - `np.interp(gradient_value, [0, 0.5, 1], [255, 165, 0])`: The gradient is computed on the green
+                #       component.
+                #           - When gradient_value is 0: The green color will be 255.
+                #           - When gradient_value is 0.5: The green color will be 165.
+                #           - When gradient_value is 1: The green color will be 0.
+                #    - `np.interp(gradient_value, [0, 1], [0, 0])`: The gradient is computed on the blue
+                #       component.
+                #           - When gradient_value is 0: The blue color will be 0.
+                #           - When gradient_value is 1: The blue color will be 0.
+                r = int(np.interp(gradient_value, [0, 0.5, 1], [255, 255, 255]))
+                g = int(np.interp(gradient_value, [0, 0.5, 1], [255, 165, 0]))  # Orange in the middle
+                b = int(np.interp(gradient_value, [0, 1], [0, 0]))
+                color = (r, g, b)
+
+                # Draw the cell with the calculated color.
+                pygame.draw.rect(screen, color, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+
+            else:
+                pygame.draw.rect(screen, colors.red, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+
+        elif self.burned:
+            pygame.draw.rect(screen, colors.black, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+
         else:
-            pygame.draw.rect(screen, colors.red, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])
+            pygame.draw.rect(screen, color, [x_pos, y_pos, CELL_WIDTH, CELL_HEIGHT])

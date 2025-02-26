@@ -5,22 +5,19 @@ from src.colors import Colors
 
 colors = Colors()
 
-# Une dataclass est une classe spécialement conçue pour contenir des données.
-# Le décorateur se charge de générer automatiquement les méthodes spéciales telles que __init__, __repr__, etc.
-# Une dataclass met donc l'accent sur les données et la concision.
 @dataclass
 class MaterialProperties:
     """
-    Propriétés physiques communes à tous les matériaux.
+    Physical properties common to all materials.
 
-    ignition_temp : Température à laquelle le matériau commence à brûler.
-    combustion_heat : Énergie libérée par unité de masse lors de la combustion.
-    burn_rate : Vitesse à laquelle le matériau brûle une fois enflammé (masse perdue par unité de temps).
-    thermal_conductivity : Capacité du matériau à conduire la chaleur.
-    thermal_capacity : Quantité de chaleur nécessaire pour augmenter la température du matériau.
-    density : Masse par unité de volume, qui influence la quantité de combustible disponible.
-    humidity : Quantité d'eau dans le matériau, qui peut retarder l'ignition et la combustion.
-    emissivity : Capacité du matériau à émettre de l'énergie thermique par rayonnement.
+    ignition_temp: Temperature at which the material begins to burn.
+    combustion_heat: Energy released per unit mass during combustion.
+    burn_rate: Speed at which the material burns once ignited (mass lost per unit time).
+    thermal_conductivity: Material's ability to conduct heat.
+    thermal_capacity: Amount of heat required to raise the temperature of the material.
+    density: Mass per unit volume, which influences the amount of fuel available.
+    humidity: Quantity of water in the material, which can retard ignition and combustion.
+    emissivity: Material's capacity to emit thermal energy by radiation.
     """
     ignition_temp: float # °C
     combustion_heat: float # MJ/kg
@@ -34,34 +31,47 @@ class MaterialProperties:
 
 class Material(Enum):
     """
-    Enumération des matériaux et de leurs propriétés physiques intrinsèques.
+    Listing of materials and their intrinsic physical properties.
     """
-    WOOD = MaterialProperties(ignition_temp=300.0,
-                              combustion_heat=18.0,
-                              burn_rate=0.35,
-                              thermal_conductivity=0.2,
-                              thermal_capacity=1.8,
-                              density=650.0,
-                              humidity=10.0,
-                              emissivity=0.8,
+    WOOD = MaterialProperties(ignition_temp=350.0, #300-400
+                              combustion_heat=17.0, #16-18
+                              burn_rate=0.4, #0.35 0.04
+                              thermal_conductivity=0.25, #0.8 0.25
+                              thermal_capacity=1.45, #1
+                              density=745.0,
+                              humidity=12.0,
+                              emissivity=0.9,
                               color=colors.wood)
 
-    GRASS = MaterialProperties(ignition_temp=300.0,
-                              combustion_heat=18.0,
-                              burn_rate=0.5,
-                              thermal_conductivity=0.2,
-                              thermal_capacity=2.0,
-                              density=80.0,
-                              humidity=25.0,
-                              emissivity=0.8,
+    GRASS = MaterialProperties(ignition_temp=300.0, #250-350
+                              combustion_heat=15.5, #14-17
+                              burn_rate=0.5, #0.5 0.1
+                              thermal_conductivity=0.07, #1.8 0.07
+                              thermal_capacity=2.2, #1.2
+                              density=100.0,
+                              humidity=70.0, #25
+                              emissivity=0.9,
                               color=colors.grass)
 
-    FUEL = MaterialProperties(ignition_temp=100.0,
-                              combustion_heat=40.0,
-                              burn_rate=0.8,
-                              thermal_conductivity=0.3,
-                              thermal_capacity=1.8,
-                              density=750.0,
-                              humidity=2.0,
-                              emissivity=0.8,
+    FUEL = MaterialProperties(ignition_temp=250.0, #250-350
+                              combustion_heat=43.0, #42-46
+                              burn_rate=0.8, #0.8 0.08
+                              thermal_conductivity=0.14, #0.8 0.14
+                              thermal_capacity=1.9, #1
+                              density=845.0,
+                              humidity=0.1, #2
+                              emissivity=0.9,
                               color=colors.fuel)
+
+    # -------------------------------------------------------------------
+    #                    MATERIALS FOR TEST PURPOSES
+    # -------------------------------------------------------------------
+    _WOOD = MaterialProperties(ignition_temp=300.0,
+                               combustion_heat=18.0,
+                               burn_rate=0.35,
+                               thermal_conductivity=0.5,  # ⬆️
+                               thermal_capacity=1.0,  # ⬇️
+                               density=650.0,
+                               humidity=10.0,
+                               emissivity=0.8,
+                               color=colors.wood)
