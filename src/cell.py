@@ -25,14 +25,11 @@ class Cell:
         # Attributs physiques
         self.material: Material = self.__get_material()
         self.fuel_level = 100.0
-        self.temperature = 20.0
-        self.oxygen_rate = 21.0
+        self.temperature = 20.0 # °C
+        self.oxygen_rate = 21.0 # %
 
-        self.humidity_rate = 20.0
-        self.heat_absorbed = 0
-        self.heat_radiated = 0
-        self.wind_force = 40
-        self.wind_direction = -1
+        self.wind_force = 40 # Not used
+        self.wind_direction = -1 # Not used
 
         # États physiques.
         self.is_burning = False
@@ -40,60 +37,10 @@ class Cell:
 
         # Attributs logiques
         self.timers = {}
+        self.click_heating_duration = 3.0
         self.neighbors: list['Cell']
         self.flame_oscillation = np.random.uniform(0.1, 0.3)
-
-    def timer(self, timer_name: str, duration: float) -> bool:
-        """Checks if a timer has expired.
-
-        Args:
-            timer_name (str): Timer name.
-            duration (float): Desired duration in seconds.
-
-        Returns:
-            bool: True if time is up, False otherwise.
-        """
-        now = pygame.time.get_ticks() // 1000
-
-        if timer_name not in self.timers:
-            self.timers[timer_name] = now
-            return False
-
-        elapsed_time = now - self.timers[timer_name]
-        if elapsed_time >= duration:
-            self.timers[timer_name] = now
-            return True
-
-        return False
-
-    def get_neighbors(self, cell_grid: list[list['Cell']], radius: int) -> list['Cell']:
-        """
-        Returns a list of neighboring cells within a specified radius.
-
-        Args :
-            cell_grid (list): The list of all cells.
-            radius (int) : Radius of neighborhood (in number of cells).
-
-        Returns :
-            The list of neighboring cells.
-        """
-        neighbors: list[Cell] = []
-        rows = len(cell_grid)
-        cols = len(cell_grid[0]) if rows > 0 else 0
-
-        for offset_row in range(-radius, radius + 1):
-            for offset_col in range(-radius, radius + 1):
-                if offset_row == 0 and offset_col == 0:  # Ne pas prendre en compte la cellule cliquée.
-                    continue
-
-                neighbor_row = self.row + offset_row
-                neighbor_col = self.col + offset_col
-
-                # Make sure the coordinates are not off the surface.
-                if 0 <= neighbor_row < rows and 0 <= neighbor_col < cols:
-                    neighbors.append(cell_grid[neighbor_row][neighbor_col])
-
-        return neighbors
+        self.color = self.material.value.color
 
     @staticmethod
     def __get_material():
@@ -104,9 +51,10 @@ class Cell:
             Material : Material object.
         """
         probabilities = {
-            Material.GRASS : 0.5, #0.50
-            Material.WOOD : 0.45,
-            Material.FUEL : 0.05
+            Material.GRASS : 0.45,
+            Material.WOOD : 0.35,
+            Material.WATER : 0.15,
+            Material.FUEL : 0.05,
         }
 
         rand_num = np.random.random()
@@ -129,14 +77,7 @@ class Cell:
         """
         Draw the cell on the main surface.
         """
-        if self.material == Material.GRASS:
-            color = Material.GRASS.value.color
-        elif self.material == Material.WOOD:
-            color = Material.WOOD.value.color
-        elif self.material == Material.FUEL:
-            color = Material.FUEL.value.color
-        else:
-            color = colors.white
+        color = self.color
 
         # Convert grid coordinates to pixel coordinates.
         x_pos = (MARGIN + CELL_WIDTH) * self.col + MARGIN

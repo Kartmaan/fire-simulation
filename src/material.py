@@ -1,6 +1,7 @@
 from enum import Enum
 from dataclasses import dataclass
 
+from src.physics import MAX_TEMP
 from src.colors import Colors
 
 colors = Colors()
@@ -26,7 +27,7 @@ class MaterialProperties:
     thermal_capacity: float # (KJ/(kg.K))
     density: float # kg/m3
     humidity: float # %
-    emissivity: float # [0,1]
+    emissivity: float # [0,1] # Not used
     color: tuple
 
 class Material(Enum):
@@ -62,6 +63,16 @@ class Material(Enum):
                               humidity=0.1, #2
                               emissivity=0.9,
                               color=colors.fuel)
+
+    WATER = MaterialProperties(ignition_temp=MAX_TEMP*2, # NO COMBUSTION
+                              combustion_heat=0.0,
+                              burn_rate=0.0,
+                              thermal_conductivity=0.6,
+                              thermal_capacity=4.18,
+                              density=1000.0,
+                              humidity=100.0,
+                              emissivity=0.9,
+                              color=colors.water)
 
     # -------------------------------------------------------------------
     #                    MATERIALS FOR TEST PURPOSES

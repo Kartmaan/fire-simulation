@@ -10,7 +10,8 @@ class Colors:
     yellow: tuple = (255, 255, 0)
     orange: tuple = (255, 165, 0)
 
-    background: tuple = (45, 45, 45)
+    background: tuple = (100, 100, 100)
     grass: tuple = (0, 180, 0)
-    wood: tuple = (153, 76, 0)
+    wood: tuple = (190, 102, 0)
+    water: tuple = (102, 178, 255)
     fuel: tuple = (210, 0, 210)
