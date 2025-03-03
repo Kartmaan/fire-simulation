@@ -10,7 +10,7 @@ from src.colors import Colors
 colors = Colors()
 
 SHOW_FLAME_ON_CURSOR = False
-MANUAL_IGNITION_DURATION = 10.0 # seconds
+MANUAL_IGNITION_DURATION = 15.0 # seconds
 
 # Create a list of Cell objects.
 grid: list[list[Cell]] = [[Cell(row, col) for col in range(cells_in_row)] for row in range(cells_in_col)]
@@ -174,6 +174,15 @@ while run:
         flame_pos = Vector2(cursor_pos.x + 12, cursor_pos.y - 2)
         pygame.draw.circle(screen, colors.black, flame_pos, flame_radius + 2) # Outline
         pygame.draw.circle(screen, colors.red, flame_pos, flame_radius)
+
+    # Stats on window title
+    mean_temp = round(temp_grid.mean(), 2)
+    max_temp = round(temp_grid.max(), 2)
+    mean_oxygen = round(oxygen_grid.mean(), 2)
+    burning = np.count_nonzero(is_burning_grid)
+    burned = np.count_nonzero(burned_grid)
+    pygame.display.set_caption(f"Fire propagation | Mean temp : {mean_temp}°C | Max temp : {max_temp}°C | "
+                               f"Mean oxygen : {mean_oxygen}% | Burning cells : {burning} | Burned cells : {burned}")
 
     # Set the FPS
     clock.tick(fps)

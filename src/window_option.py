@@ -4,7 +4,10 @@ pygame.init()
 
 clock = pygame.time.Clock()
 fps = 30
-pygame.display.set_caption("Fire propagation")
+
+# Favicon
+favicon = pygame.image.load("assets/favicon.png")
+pygame.display.set_icon(favicon)
 
 # The size of the window is a fraction of the size of the user's screen. It's on the basis of this window's dimensions
 # that cell size (if required) and the number of cells per row and column are adjusted.

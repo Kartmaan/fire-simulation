@@ -12,17 +12,32 @@ SHOW_GRADIENT_ANIMATION = True
 
 class Cell:
     """
-    Space cell containing the material.
+    Represents a single cell in the fire simulation grid.
 
-    The cell possesses physical attributes such as temperature, humidity and oxygen rate that can influence the state
-    of the material during combustion.
+    Each cell holds a material and its physical properties, such as temperature, fuel level, and oxygen rate.
+    It also manages the cell's state (burning or burned) and its visual representation.
+
+    Attributes:
+        row (int): The row index of the cell within the grid.
+        col (int): The column index of the cell within the grid.
+        material (Material): The type of material present in the cell.
+        fuel_level (float): The current amount of fuel in the cell (0.0 to 100.0).
+        temperature (float): The current temperature of the cell in degrees Celsius.
+        oxygen_rate (float): The current oxygen level in the cell, as a percentage (0.0 to 100.0).
+        wind_force (float): Not used.
+        wind_direction (int): Not used.
+        is_burning (bool): True if the cell is currently on fire, False otherwise.
+        burned (bool): True if the cell has already been consumed by fire, False otherwise.
+        manually ignited.
+        flame_oscillation (float): A random factor that controls the oscillation rate of the cell's flame.
+        color (tuple): The RGB color of the cell.
     """
     def __init__(self, row, col):
         # Position sur la grille
         self.row = row
         self.col = col
 
-        # Attributs physiques
+        # Physical attributes
         self.material: Material = self.__get_material()
         self.fuel_level = 100.0
         self.temperature = 20.0 # °C
@@ -31,14 +46,11 @@ class Cell:
         self.wind_force = 40 # Not used
         self.wind_direction = -1 # Not used
 
-        # États physiques.
+        # Physical states
         self.is_burning = False
         self.burned = False
 
-        # Attributs logiques
-        self.timers = {}
-        self.click_heating_duration = 3.0
-        self.neighbors: list['Cell']
+        # Visual attributes
         self.flame_oscillation = np.random.uniform(0.1, 0.3)
         self.color = self.material.value.color
 
@@ -51,19 +63,19 @@ class Cell:
             Material : Material object.
         """
         probabilities = {
-            Material.GRASS : 0.45,
+            Material.GRASS : 0.40,
             Material.WOOD : 0.35,
             Material.WATER : 0.15,
-            Material.FUEL : 0.05,
+            Material.GASOLINE : 0.10,
         }
 
         rand_num = np.random.random()
 
         # Cumulative probability test.
         # The random number between 0 and 1 is compared with these cumulative thresholds:
-        # 1st pass of the 'cumulative_proba' loop = 0.5.
-        # 2nd pass run 'cumulative_proba' = 0.95.
-        # 3rd pass of the 'cumulative_proba' loop = 1.
+        # - 1st pass of the 'cumulative_proba' loop = 0.5.
+        # - 2nd pass run 'cumulative_proba' = 0.95.
+        # - 3rd pass of the 'cumulative_proba' loop = 1.
         # At each of these passes, a check is made to see if 'rand_num' is less than or equal to 'cumulative_proba'.
         # If so, the function returns the material associated with the probability value.
         cumulative_proba = 0
@@ -83,9 +95,9 @@ class Cell:
         x_pos = (MARGIN + CELL_WIDTH) * self.col + MARGIN
         y_pos = (MARGIN + CELL_HEIGHT) * self.row + MARGIN
 
+        # --- Flame Color Gradient Based on Temperature and Oscillation ---
         if self.is_burning:
             if SHOW_GRADIENT_ANIMATION:
-                # --- Flame Color Gradient Based on Temperature and Oscillation ---
                 # 1. Normalize Temperature:
                 #    - We want to map the temperature to a range between 0 and 1.
                 #    - `self.temperature - self.material.value.ignition_temp`: We subtract the ignition temperature

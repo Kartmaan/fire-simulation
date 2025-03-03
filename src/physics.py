@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 
 from src.window_option import CELL_WIDTH, CELL_HEIGHT
@@ -15,7 +17,8 @@ MIN_OXYGEN_RATE = 5.0 # Minimum oxygen level below which combustion stops
 MEGAJOULES_TO_JOULES = 1e6 # MJ -> J
 KILOJOULES_TO_JOULES = 1e3 # KJ -> J
 
-def heat_conduction(temp_grid: np.ndarray, conductivity_grid: np.ndarray, capacity_grid: np.ndarray, delta_time: float):
+def heat_conduction(temp_grid: np.ndarray, conductivity_grid: np.ndarray, capacity_grid: np.ndarray,
+                    delta_time: float) -> np.ndarray[tuple[Any, Any], np.dtype[float]]:
     """
     Calculates and applies heat conduction between neighboring cells in a grid.
 
@@ -131,13 +134,15 @@ def heat_conduction(temp_grid: np.ndarray, conductivity_grid: np.ndarray, capaci
     temp_grid[1:, :] += heat_transfer_down[:-1, :] / capacity_grid[1:, :] # Cell below gain heat
 
     # --- 5. Temperature Clamping ---
-    # Ensure that no cell's temperature drops below MIN_TEMP (ambient temperature) and no cell's temperature exceeds MAX_TEMP.
+    # Ensure that no cell's temperature drops below MIN_TEMP (ambient temperature) and no cell's temperature exceeds
+    # MAX_TEMP.
     # We use np.clip() to limit the values to the range [MIN_TEMP, MAX_TEMP].
     np.clip(temp_grid, MIN_TEMP, MAX_TEMP, out=temp_grid)
 
     return temp_grid
 
-def update_ignition(temperature_grid, ignition_temp_grid, humidity_grid, burned_grid):
+def update_ignition(temperature_grid, ignition_temp_grid, humidity_grid,
+                    burned_grid) -> np.ndarray[tuple[Any, Any], np.dtype[bool]]:
     """
     Determines which cells should ignite based on their effective ignition temperature.
 
@@ -214,7 +219,7 @@ def update_ignition(temperature_grid, ignition_temp_grid, humidity_grid, burned_
     return is_burning_grid
 
 def update_combustion(temperature_grid, fuel_grid, oxygen_grid, is_burning_grid, burn_rate_grid, combustion_heat_grid,
-                      density_grid, thermal_capacity_grid, delta_time):
+                      density_grid, thermal_capacity_grid, delta_time) -> tuple:
     """
     Updates the combustion state of cells in the grid based on fuel, oxygen, and burning status.
 

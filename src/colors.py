@@ -2,6 +2,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Colors:
+    """
+    A collection of commonly used RGB color tuples.
+
+    This class provides a convenient way to access predefined colors through named attributes.
+    """
     black: tuple = (0, 0, 0)
     white: tuple = (255, 255, 255)
     red: tuple = (255, 0, 0)
@@ -10,8 +15,8 @@ class Colors:
     yellow: tuple = (255, 255, 0)
     orange: tuple = (255, 165, 0)
 
-    background: tuple = (100, 100, 100)
-    grass: tuple = (0, 180, 0)
-    wood: tuple = (190, 102, 0)
-    water: tuple = (102, 178, 255)
+    background: tuple = (112, 128, 144)
+    grass: tuple = (34, 139, 34)
+    wood: tuple = (164, 114, 11)
+    water: tuple = (0, 170, 170) # (0, 170, 255)
     fuel: tuple = (210, 0, 210)
