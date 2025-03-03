@@ -1,7 +1,7 @@
 # 🔥 Fire Propagation Simulation
 **A realistic simulation of fire propagation** using thermodynamic and combustion principles, developed in Python with Pygame and NumPy.
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/OmK2kF2qTYU?si=78ztKPB9kArCnjM0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![Watch the video](/assets/readme/thumbnail.png)](https://youtu.be/OmK2kF2qTYU?si=1zg0MunhyuBElVxR)
 
 ## 📜 Description
 This project models the propagation of a fire in a 2D environment composed of different materials. It integrates physical mechanisms such as:
