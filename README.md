@@ -21,49 +21,37 @@ The simulation supports 4 different materials:
 
 These materials are randomly distributed on the grid according to the probability of appearance of each material.
 
-## Calculation of thermal reactions
+## 🧮 Calculation of thermal reactions
 
 ### **Matrix-Based Calculations**
 To achieve efficient and scalable simulation of fire propagation across a grid of cells, we utilize **NumPy arrays and vectorized operations**. This approach offers significant performance advantages over traditional Python loops, especially for large grids.
 
 Instead of iterating through each cell individually, we represent key physical properties as 2D NumPy matrices (grids). This allows us to perform calculations on the entire grid (or parts of it) simultaneously using NumPy highly optimized functions.
 
+At each frame of the simulation, the physical properties of the grid cells are extracted and aligned into separate matrices for processing by vectorization functions simulating the main thermal reactions. The modified matrix elements are then reinjected into their respective grid cells. The operation is repeated at the next frame.
+
 ![Matrices](/assets/readme/matrices.png)
 
 **Matrices used in calculation**
-- **temp_grid**:  A matrix representing the **temperature** of each cell in the grid (°C).
 
-
-- **conductivity_grid**: A matrix representing the **thermal conductivity** of the material in each cell (W/(m·K)).
-
-
-- **capacity_grid**: A matrix representing the **thermal capacity** of the material in each cell (kJ/(kg·K)).
-
-
-- **fuel_grid**: A matrix representing the **fuel level** (amount of combustible material) in each cell (%).
-
-
-- **oxygen_grid**: A matrix representing the **oxygen rate** in each cell.
-
-
-- **humidity_grid**: A matrix representing the **humidity** of the material in each cell (%).
-
-
-- **ignition_temp_grid**: A matrix representing the **ignition temperature** of the material in each cell (°C).
-
-
-- **burn_rate_grid**: A matrix representing the **burn rate** of the material in each cell (kg/m²/s).
-
-
-- **combustion_heat_grid**: A matrix representing the **heat of combustion** of the material in each cell (MJ/kg).
-
-
-- **density_grid**: A matrix representing the **density** of the material in each cell (kg/m³).
-
-
-- **burned_grid**: A boolean matrix indicating whether each cell is in a **burned** state (fuel depleted).
+| Grid name            | Description                                                                         |
+|----------------------|-------------------------------------------------------------------------------------|
+| temp_grid            | Temperature of each cell in the grid (°C)                                           |
+| conductivity_grid    | Thermal conductivity of the material in each cell (W/(m·K)).                        |
+| capacity_grid        | Thermal capacity of the material in each cell (kJ/(kg·K)).                          |
+| fuel_grid            | Amount of combustible material in each cell (%).                                    |
+| oxygen_grid          | Oxygen rate in each cell (%).                                                       |
+| humidity_grid        | Humidity of the material in each cell (%).                                          |
+| ignition_temp_grid   | Ignition temperature of the material in each cell (°C).                             |
+| burn_rate_grid       | Burn rate of the material in each cell (kg/m²/s).                                   |
+| combustion_heat_grid | Heat of combustion of the material in each cell (MJ/kg).                            |
+| density_grid         | Density of the material in each cell (kg/m³).                                       |
+| burned_grid          | Boolean matrix indicating whether each cell is in a "burned" state (fuel depleted). |
 
 By using these matrices, the physics functions (described below) can perform calculations in a vectorized manner, significantly speeding up the simulation.
+
+### Physics functions
+These matrices of physical attributes are processed successively by three functions carrying out vectorization operations on them to simulate thermal reactions: `heat_conduction`, `update_ignition` and `update_combustion`.
 
 #### Heat conduction
 Simulates **heat transfer by conduction** between neighboring cells in the grid.
@@ -172,9 +160,9 @@ Combustion is a chemical process that:
 **Simplified Formulas**
 
 - Fuel consumed = $Burn Rate * Δt * is burning grid$
-- Heat generation = $Fuel_Consumed * Combustion_Heat$
+- Heat generation = $Fuel Consumed * Combustion Heat$
 - Temperature Increase = $Heat Generated / (Cell Mass * Thermal Capacity)$
-- Oxygen Consumption = $Fuel Consumed * OXYGEN CONSUMPTION FACTOR$
+- Oxygen Consumption = $Fuel Consumed * Oxygen Consumption Factor$
 
 **Matrix Implementation Details :**
 
@@ -182,7 +170,7 @@ Combustion is a chemical process that:
 2.  **Update fuel level (`fuel_grid`):** Decreases the fuel level in burning cells and ensures it does not go below zero.
 3.  **Calculate heat generated (`heat_generated`):**  Vectorized calculation of heat release based on `fuel_consumed` and `combustion_heat_grid`.
 4.  **Calculate temperature increase (`delta_temp`):**  Calculates the temperature increase for each burning cell based on `heat_generated`, cell mass (approximated using `density_grid` and a unit volume), and `thermal_capacity_grid`.
-5.  **Update temperature (`temperature_grid`):** Increases the temperature of burning cells, clamping it to a maximum value (e.g., 2500°C).
+5.  **Update temperature (`temperature_grid`):** Increases the temperature of burning cells, clamping it to a maximum value.
 6.  **Calculate oxygen consumed (`oxygen_consumed`):** Vectorized calculation of oxygen consumption, linked to fuel consumption.
 7.  **Update oxygen level (`oxygen_grid`):** Decreases the oxygen level in burning cells, ensuring it does not go below zero.
 8.  **Update `is_burning_grid`:**  Updates the `is_burning_grid` boolean matrix. Combustion is stopped for cells where either the oxygen level is too low (below a threshold, e.g., 5%) or the fuel is depleted.
@@ -201,17 +189,14 @@ Combustion is a chemical process that:
 ### Simplification and Limitations
 It's important to note that this simulation employs several simplifications for computational efficiency and to focus on the core mechanisms of fire propagation. Key simplifications include:
 - **2D Grid:** The simulation is currently 2-dimensional, neglecting vertical fire spread and 3D effects.
-- **Simplified Heat Transfer:** Only heat conduction is currently implemented. Convection and radiation, which are significant in real fires, are not yet included.
+
+
 - **Homogeneous Cells:** Cells are treated as homogeneous units with uniform material properties and temperature.
+
+
 - **Simplified Combustion Model:** The combustion model is a simplified representation of complex chemical processes, using a constant burn rate and heat of combustion.
-- **Empirical Parameters:** Parameters were defined empirically to compensate for certain drawbacks associated with the simplifications made to the simulation. MAX_TEMP, for example, is used to prevent combustion from getting out of control: 
-  - In a limited, confined grid, cells located at the edges and corners have fewer “neighbors” to which to dissipate heat by conduction. In other words, they are less well “cooled” by conduction to the outside of the burning zone.
-  - In an infinite or very large grid, every cell (except those at the very edge of a very large fire) is surrounded by neighbors, and heat can spread outwards more easily, diluting the heat build-up in the center of the fire.
-  - Grid confinement therefore limits the relative “cooling surfaces” in relation to the volume of the burning zone.
-  - Heat generated by combustion tends to accumulate more in a confined space. If the heat cannot escape efficiently to the outside, the overall temperature of the grate (or burning zone) will tend to rise more rapidly and potentially excessively.
-  - It's a bit like an oven: a confined space with a heat source will see its temperature rise higher than an open space with the same heat source, because heat loss to the outside is limited.
-  - The current simulation only considers conduction as the heat transfer mechanism between cells. It does not explicitly model heat loss to the environment outside the grid.
-  - In reality, a fire loses heat to the environment through several important mechanisms that are not implemented in this model
-  - The current simulation only considers conduction as the heat transfer mechanism between cells. It does not explicitly model heat loss to the environment outside the grid.
-  - In reality, a fire loses heat to the environment via several important mechanisms that are not implemented in this model, such as thermal radiation to the atmosphere or convection to the ambient air.
-  - In the absence of these heat loss mechanisms, the heat generated by combustion is even more likely to accumulate in the grid, exacerbating thermal runaway and necessitating the use of a MAX_TEMP to artificially limit the temperature.
+
+
+- **Empirical Parameters:** Parameters were defined empirically to compensate for certain drawbacks associated with the simplifications made to the simulation. MAX_TEMP, for example, is used to prevent combustion from getting out of control.
+
+> **Temperature limit**: In a limited, confined grid, cells located at the edges and corners have fewer “neighbors” to which to dissipate heat by conduction. In other words, they are less well “cooled” by conduction to the outside of the burning zone. In an infinite or very large grid, every cell is surrounded by neighbors, and heat can spread outwards more easily. The containment of the grid therefore reduces the cooling potential, and heat generated by combustion tends to accumulate more in a confined space. If the heat cannot escape efficiently to the outside, the overall temperature of the grate (or burning zone) will tend to rise more rapidly and potentially excessively. The current simulation only considers conduction as the heat transfer mechanism between cells, in reality, a fire loses heat to the environment via several important mechanisms that are not implemented in this model, such as thermal radiation to the atmosphere or convection to the ambient air. In the absence of these heat loss mechanisms, the heat generated by combustion is even more likely to accumulate in the grid, exacerbating thermal runaway and necessitating the use of a MAX_TEMP to artificially limit the temperature.
